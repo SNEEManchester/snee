@@ -20,9 +20,9 @@ import uk.ac.manchester.cs.snee.compiler.queryplan.QueryExecutionPlan;
 import uk.ac.manchester.cs.snee.compiler.queryplan.RT;
 import uk.ac.manchester.cs.snee.compiler.queryplan.RTUtils;
 import uk.ac.manchester.cs.snee.compiler.queryplan.SensorNetworkQueryPlan;
+import uk.ac.manchester.cs.snee.compiler.queryplan.SensorNetworkQueryPlanUtils;
 import uk.ac.manchester.cs.snee.compiler.sn.physical.AlgorithmSelector;
 import uk.ac.manchester.cs.snee.compiler.sn.router.Router;
-import uk.ac.manchester.cs.snee.compiler.sn.router.RouterException;
 import uk.ac.manchester.cs.snee.compiler.sn.when.WhenScheduler;
 import uk.ac.manchester.cs.snee.compiler.sn.when.WhenSchedulerException;
 import uk.ac.manchester.cs.snee.compiler.sn.where.WhereScheduler;
@@ -68,12 +68,11 @@ public class SourcePlanner {
 	 * @throws SNEEConfigurationException
 	 * @throws OptimizationException 
 	 * @throws WhenSchedulerException 
-	 * @throws RouterException 
 	 */
 	public QueryExecutionPlan doSourcePlanning(DLAF dlaf, QoSExpectations qos, 
 	CostParameters costParams, int queryID) 
 	throws SNEEException, SchemaMetadataException, TypeMappingException, SNEEConfigurationException, 
-	OptimizationException, WhenSchedulerException, RouterException {
+	OptimizationException, WhenSchedulerException {
 		if (logger.isDebugEnabled())
 			logger.debug("ENTER doSourcePlanning() for " + queryID);
 		QueryExecutionPlan qep = null;
@@ -114,12 +113,11 @@ public class SourcePlanner {
 	 * @throws SNEEConfigurationException
 	 * @throws OptimizationException 
 	 * @throws WhenSchedulerException 
-	 * @throws RouterException 
 	 */
 	private SensorNetworkQueryPlan doSensorNetworkSourcePlanning(DLAF dlaf,
 	QoSExpectations qos, CostParameters costParams, String queryID) 
 	throws SNEEException, TypeMappingException, SchemaMetadataException, 
-	SNEEConfigurationException, OptimizationException, WhenSchedulerException, RouterException {
+	SNEEConfigurationException, OptimizationException, WhenSchedulerException {
 		if (logger.isTraceEnabled())
 			logger.trace("ENTER doSensorNetworkSourcePlanning() for " +
 					queryID);
@@ -132,7 +130,8 @@ public class SourcePlanner {
 		logger.info("Starting When-Scheduling for query " + queryID);
 		Agenda agenda = doSNWhenScheduling(daf, qos, queryID);
 		SensorNetworkQueryPlan qep = new SensorNetworkQueryPlan(dlaf, rt, daf,
-				agenda, queryID); //agenda		
+				agenda, queryID); //agenda
+		new SensorNetworkQueryPlanUtils(qep).generateQoSMetricsFile();
 		if (logger.isTraceEnabled())
 			logger.trace("RETURN doSensorNetworkSourcePlanning()");
 		return qep;
@@ -164,7 +163,7 @@ public class SourcePlanner {
 		return paf;
 	}
 	
-	private RT doSNRouting(PAF paf, String queryName) throws SNEEConfigurationException, RouterException {
+	private RT doSNRouting(PAF paf, String queryName) throws SNEEConfigurationException {
 		if (logger.isTraceEnabled())
 			logger.debug("ENTER doSNRouting()");
 		Router router = new Router();
@@ -214,7 +213,7 @@ public class SourcePlanner {
 		Agenda agenda = whenSched.doWhenScheduling(daf, qos, queryName);
 		if (SNEEProperties.getBoolSetting(SNEEPropertyNames.GENERATE_QEP_IMAGES)) {
 			new AgendaUtils(agenda, true).generateImage();
-		}		
+		}
 		if (logger.isTraceEnabled())
 			logger.debug("RETURN doSNWhenScheduling()");
 		return agenda;

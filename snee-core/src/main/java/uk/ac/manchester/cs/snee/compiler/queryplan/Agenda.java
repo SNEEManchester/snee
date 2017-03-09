@@ -47,11 +47,13 @@ import uk.ac.manchester.cs.snee.common.SNEEPropertyNames;
 import uk.ac.manchester.cs.snee.common.Triple;
 import uk.ac.manchester.cs.snee.common.Utils;
 import uk.ac.manchester.cs.snee.compiler.OptimizationException;
+import uk.ac.manchester.cs.snee.metadata.AvroraCostParameters;
 import uk.ac.manchester.cs.snee.metadata.CostParameters;
 import uk.ac.manchester.cs.snee.metadata.schema.SchemaMetadataException;
 import uk.ac.manchester.cs.snee.metadata.schema.TypeMappingException;
 import uk.ac.manchester.cs.snee.metadata.source.sensornet.Site;
 import uk.ac.manchester.cs.snee.operators.logical.AcquireOperator;
+import uk.ac.manchester.cs.snee.operators.logical.CardinalityType;
 
 
 /**
@@ -906,7 +908,19 @@ public class Agenda extends SNEEAlgebraicForm {
 	 * @return
 	 */
 	private double getRadioEnergy(CommunicationTask ct) {
-		double taskDuration = bmsToMs(ct.getTimeCost(this.daf))/1000.0;
+		double taskDuration=0;
+		try {
+			taskDuration = bmsToMs(ct.getTimeCost(this.daf))/1000.0;
+		} catch (OptimizationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (SchemaMetadataException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (TypeMappingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		double voltage = AvroraCostParameters.VOLTAGE;
 		
 		double radioRXAmp = AvroraCostParameters.getRadioReceiveAmpere();
@@ -921,14 +935,12 @@ public class Agenda extends SNEEAlgebraicForm {
 		}
 		Site sender = ct.getSourceNode();
 		Site receiver = (Site)sender.getOutput(0);
-		int txPower = (int)this.getDAF().getRT().getRadioLink(sender, receiver).getLinkEnergyCost(sender, receiver);
+		int txPower = (int)this.getDAF().getRT().getRadioLink(sender, receiver).getEnergyCost();
 		double radioTXAmp = AvroraCostParameters.getTXAmpere(txPower);
 		
 		HashSet<ExchangePart> exchComps = ct.getExchangeComponents();
-		AvroraCostExpressions  costExpressions = 
-			(AvroraCostExpressions)CostExpressions.costExpressionFactory(daf);
 		AlphaBetaExpression txTimeExpr = AlphaBetaExpression.multiplyBy(
-				costExpressions.getPacketsSent(exchComps, true),
+				getPacketsSent(exchComps, true),
 				AvroraCostParameters.PACKETTRANSMIT);
 		double txTime = (txTimeExpr.evaluate(alpha, beta))/1000.0;
 		double rxTime = taskDuration-txTime;
@@ -939,6 +951,47 @@ public class Agenda extends SNEEAlgebraicForm {
 		return (txEnergy+rxEnergy);	
 	}
 
+	/** 
+	 * Generates an expression for the packets sent  
+	 * for given collection of exchange components.
+	 * 
+	 * @param site Site for which to generate costs.
+	 * @param round Defines if rounding reserves should be included or not
+	 * @return Packets sent expression 
+	 */
+	public AlphaBetaExpression getPacketsSent(HashSet<ExchangePart> exchangeComponents, 
+			final boolean round) { 
+		AlphaBetaExpression expression = new AlphaBetaExpression();
+		Iterator<ExchangePart> exchCompIter = 
+			exchangeComponents.iterator();
+		while (exchCompIter.hasNext()) {
+			final ExchangePart exchangeComponent = 
+				exchCompIter.next();
+    		if ((exchangeComponent.getComponentType() 
+    					== ExchangePartType.PRODUCER)
+    				|| (exchangeComponent.getComponentType() 
+    					== ExchangePartType.RELAY)) {
+    			//TODO determine which is more accurate Packets or bytes.
+     			int packets=0;
+				try {
+					packets = exchangeComponent.packetsPerTask(
+							daf, beta, costParams);
+				} catch (OptimizationException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (SchemaMetadataException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} catch (TypeMappingException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+    			expression.add(packets);
+    		}
+		}
+		return expression;
+	}
+	
 	
 	/**
 	 * Returns sensor energy cost (J) for agenda according to model.

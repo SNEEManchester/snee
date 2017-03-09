@@ -23,6 +23,7 @@ import uk.ac.manchester.cs.snee.compiler.queryplan.SensorNetworkQueryPlan;
 import uk.ac.manchester.cs.snee.compiler.queryplan.SensorNetworkQueryPlanUtils;
 import uk.ac.manchester.cs.snee.compiler.sn.physical.AlgorithmSelector;
 import uk.ac.manchester.cs.snee.compiler.sn.router.Router;
+import uk.ac.manchester.cs.snee.compiler.sn.router.RouterException;
 import uk.ac.manchester.cs.snee.compiler.sn.when.WhenScheduler;
 import uk.ac.manchester.cs.snee.compiler.sn.when.WhenSchedulerException;
 import uk.ac.manchester.cs.snee.compiler.sn.where.WhereScheduler;
@@ -72,7 +73,7 @@ public class SourcePlanner {
 	public QueryExecutionPlan doSourcePlanning(DLAF dlaf, QoSExpectations qos, 
 	CostParameters costParams, int queryID) 
 	throws SNEEException, SchemaMetadataException, TypeMappingException, SNEEConfigurationException, 
-	OptimizationException, WhenSchedulerException {
+	OptimizationException, WhenSchedulerException, RouterException {
 		if (logger.isDebugEnabled())
 			logger.debug("ENTER doSourcePlanning() for " + queryID);
 		QueryExecutionPlan qep = null;
@@ -117,7 +118,7 @@ public class SourcePlanner {
 	private SensorNetworkQueryPlan doSensorNetworkSourcePlanning(DLAF dlaf,
 	QoSExpectations qos, CostParameters costParams, String queryID) 
 	throws SNEEException, TypeMappingException, SchemaMetadataException, 
-	SNEEConfigurationException, OptimizationException, WhenSchedulerException {
+	SNEEConfigurationException, OptimizationException, WhenSchedulerException, RouterException {
 		if (logger.isTraceEnabled())
 			logger.trace("ENTER doSensorNetworkSourcePlanning() for " +
 					queryID);
@@ -163,7 +164,7 @@ public class SourcePlanner {
 		return paf;
 	}
 	
-	private RT doSNRouting(PAF paf, String queryName) throws SNEEConfigurationException {
+	private RT doSNRouting(PAF paf, String queryName) throws SNEEConfigurationException, RouterException {
 		if (logger.isTraceEnabled())
 			logger.debug("ENTER doSNRouting()");
 		Router router = new Router();

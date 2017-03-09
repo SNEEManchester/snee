@@ -212,4 +212,9 @@ public class CommunicationTask extends Task {
 	return "TX " + this.sourceNode.getID() + "_" + this.destNode.getID();
     }
 
+    
+    public HashSet<ExchangePart> getExchangeComponents() {
+    	return this.exchangeComponents;
+    }
+
 }

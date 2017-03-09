@@ -44,12 +44,14 @@ import org.apache.log4j.Logger;
 import uk.ac.manchester.cs.snee.common.SNEEConfigurationException;
 import uk.ac.manchester.cs.snee.common.SNEEProperties;
 import uk.ac.manchester.cs.snee.common.SNEEPropertyNames;
+import uk.ac.manchester.cs.snee.common.Triple;
 import uk.ac.manchester.cs.snee.common.Utils;
 import uk.ac.manchester.cs.snee.compiler.OptimizationException;
 import uk.ac.manchester.cs.snee.metadata.CostParameters;
 import uk.ac.manchester.cs.snee.metadata.schema.SchemaMetadataException;
 import uk.ac.manchester.cs.snee.metadata.schema.TypeMappingException;
 import uk.ac.manchester.cs.snee.metadata.source.sensornet.Site;
+import uk.ac.manchester.cs.snee.operators.logical.AcquireOperator;
 
 
 /**
@@ -129,8 +131,6 @@ public class Agenda extends SNEEAlgebraicForm {
 		logger.trace("Scheduling the non-leaf fragments");
 		scheduleNonLeafFragments();
 		logger.trace("Scheduling network management section");
-		logger.trace("add radioOn and radioOff tasks");
-		insertRadioOnOffTasks();
 		logger.trace("Scheduled final sleep task");
 		scheduleFinalSleepTask();
 		
@@ -812,183 +812,179 @@ public class Agenda extends SNEEAlgebraicForm {
 		this.setNonLeafStart(nonLeafStart);
 	}
 
-    /**
-     * Checks if site has been scheduled a task (including sleep tasks) at a given time.
-     * @param site
-     * @param startTime
-     * @return
-     */
-    public final boolean isFree(final Site site, final long startTime, final long endTime) {
-    	final Iterator<Task> taskListIter = this.tasks.get(site).iterator();
-    	while (taskListIter.hasNext()) {
-    	    final Task t = taskListIter.next();
-    	    long taskStartTime = t.getStartTime();
-    	    long taskEndTime = t.getEndTime();
-    	    if (taskStartTime <= startTime && startTime < taskEndTime) {
-    	    	return false;
-    	    }
-    	    if (taskStartTime <= endTime-1 && endTime-1 < taskEndTime) {
-    	    	return false;
-    	    }
-    	}
-    	return true;
-    }
-    
-
-    public final boolean hasRadioOn(final Site site, final long time) {
-    	boolean radioOn = false;
-    	
-    	final Iterator<Task> taskListIter = this.tasks.get(site).iterator();
-    	while (taskListIter.hasNext()) {
-    	    final Task t = taskListIter.next();
-    	    long taskStartTime = t.getStartTime();
-
-    	    if (taskStartTime > time) {
-    	    	return radioOn;
-    	    }
-    	    
-    	    if (t instanceof RadioOnTask) {
-    	    	radioOn = true;
-    	    }
-    	    if (t instanceof RadioOffTask) {
-    	    	radioOn = false;
-    	    }
-    	}
-    	return radioOn;
-    }
-    
-    /**
-     * Shifts all the tasks for all the sites starting on or after a given time by offset.
-     * @param time
-     * @param offset
-     */
-    public final void shift(final long time, final long offset) {
-    	
-    	//update the list of startTimes
-    	for (int i=0; i < this.startTimes.size(); i++) {
-    		if (this.startTimes.get(i)>=time) {
-    			long oldStartTime = this.startTimes.get(i);
-    			long newStartTime = oldStartTime+offset;
-    			this.startTimes.set(i, newStartTime);    			
-    		}
-    	}
-    	
-    	//update the list of tasks at each site
-    	Iterator<Site> siteIter = this.getDAF().getRT().siteIterator(TraversalOrder.POST_ORDER);
-    	while (siteIter.hasNext()) {
-    		Site s = siteIter.next();
-    		
-    		ArrayList<Task> siteTaskList = this.tasks.get(s);
-    		for (int i=0; i < siteTaskList.size(); i++) {
-    			Task t = siteTaskList.get(i);
-    			if (t.startTime>=time) {
-	    			t.startTime += offset;
-			    	t.endTime += offset;
-    			}
-    		}
-    	}
-    }
-
-	
-	private void insertRadioOnOffTasks() {
-		Iterator<Site> siteIter;
-		siteIter = this.daf.getRT().siteIterator(TraversalOrder.POST_ORDER);
-		long radioOnTimeCost = (long) costParams.getTurnOnRadio();
-		long radioOffTimeCost = (long) costParams.getTurnOffRadio();
-		
-		while (siteIter.hasNext()) {
-			Site site = siteIter.next();
-			ArrayList<Task> siteTasks = this.tasks.get(site);
-			for (int i = 0; i<siteTasks.size(); i++) {
-				Task t = siteTasks.get(i);
-				long startTime = t.startTime;
-				if ((t instanceof CommunicationTask || t.isDeliverTask()) && !this.hasRadioOn(site, startTime)) {
-					if (this.isFree(site, startTime - radioOnTimeCost, startTime)) {
-						this.insertTask(startTime - radioOnTimeCost, site, 
-								new RadioOnTask(startTime - radioOnTimeCost, site, costParams));
-					} else {
-						this.shift(startTime, radioOnTimeCost);
-						this.insertTask(startTime, site, new RadioOnTask(startTime, site, costParams));
-					}
-				}
-				if ((t instanceof CommunicationTask || t.isDeliverTask())&& (radioNextNeededTime(siteTasks, i+1)==-1 
-						|| radioNextNeededTime(siteTasks, i+1) > t.endTime + (radioOnTimeCost*1.5))) {
-					
-					if (this.isFree(site, t.endTime, t.endTime+radioOffTimeCost)) {
-						this.insertTask(t.endTime, site, new RadioOffTask(t.endTime, site, costParams));
-					} else {
-						this.shift(t.endTime, radioOffTimeCost);
-						this.insertTask(t.endTime, site, new RadioOffTask(t.endTime, site, costParams));
-					}
-				}
-			}
-		}
-	}
-	
-    public final void insertTask(final long time, final Site site, final Task t) {
-    	boolean found = false;
-    	
-    	for (int i=0; i < this.startTimes.size(); i++) {
-    		if (time == this.startTimes.get(i)) {
-    			found = true;
-    			break;
-    		}
-    		if (time < this.startTimes.get(i)) {
-    			this.startTimes.add(i, new Long(time));
-    			found = true;
-    			break;
-    		}
-    	}
-
-    	//append to the end
-    	if (!found) {
-    		this.startTimes.add(new Long(time));
-    	}
-    	
-    	found = false;
-    	ArrayList<Task> taskList = this.tasks.get(site);
-    	for (int i=0; i < taskList.size(); i++) {
-    		if (time < taskList.get(i).getStartTime()) {
-    			taskList.add(i, t);
-    			found = true;
-    			break;
-    		}
-    	}
-    
-    	//append to end
-    	if (!found) {
-    		taskList.add(t);
-    	}
-    }	
-	
-    /**
-     * Given the list of tasks for a particular site, and a index to start searching, returns
-     * the startTime of the next task which requires use of the radio.
-     * If there is none, returns -1.
-     * @param siteTasks
-     * @param startTaskNum
-     * @return
-     */
-    public static long radioNextNeededTime(ArrayList<Task> siteTasks, int startTaskNum) {
-    	
-    	//startTaskNum is beyond the last task; radio never needed again 
-    	if (startTaskNum >= siteTasks.size()) {
-    		return -1;
-    	}
-    	
-    	for (int i=startTaskNum; i<siteTasks.size(); i++) {
-    		Task t = siteTasks.get(i);
-    		
-    		//check if communication task or deliver task
-    		if (t instanceof CommunicationTask || t.isDeliverTask()) {
-    			return t.startTime;
-    		}    		
-    	}
-    	
-    	return -1;
-    }
-	
 	public CostParameters getCostParameters() {
 		return this.costParams;
 	}    
+	
+	/**
+	 * Returns the total total network energy in Joules according to model.
+	 * @return
+	 */
+	public double getTotalEnergy() {
+		double sumEnergy = 0;
+		Iterator<Site> siteIter = this.getDAF().getRT().siteIterator(
+				TraversalOrder.POST_ORDER);
+		while (siteIter.hasNext()){
+			Site site = siteIter.next();
+			if (site!=this.getDAF().getRT().getRoot()) {
+				sumEnergy += getSiteEnergyConsumption(site);
+			}
+		}
+		double agendaLength = bmsToMs(this.getLength_bms(false))/1000.0; // ms to s
+		double energyConsumptionRate = sumEnergy/agendaLength; // J/s
+		return energyConsumptionRate*15778463.0;
+	}
+
+	/**
+	 * Returns the total site energy in Joules according to model.
+	 * @param site
+	 * @return
+	 */
+	private double getSiteEnergyConsumption(Site site) {
+		double sumEnergy = 0;
+		long cpuActiveTimeBms = 0;
+		
+		double sensorEnergy = 0;
+		ArrayList<Task> siteTasks = this.tasks.get(site);
+		for (int i=0; i<siteTasks.size(); i++) {
+			Task t = siteTasks.get(i);
+			if (t instanceof SleepTask) {
+				continue;
+			}
+			
+			try {
+				cpuActiveTimeBms += t.getTimeCost(this.daf);
+			} catch (OptimizationException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (SchemaMetadataException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (TypeMappingException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			if (t instanceof FragmentTask) {
+				FragmentTask ft = (FragmentTask)t;
+				Fragment f = ft.getFragment();
+				if (f.containsOperatorType(AcquireOperator.class)) {
+					sensorEnergy += getSensorEnergyCost(f);
+				}
+				sumEnergy += sensorEnergy;
+			} else if (t instanceof CommunicationTask) {
+				CommunicationTask ct = (CommunicationTask)t;
+				sumEnergy += getRadioEnergy(ct);
+			} 
+		}
+		sumEnergy += getCPUEnergy(cpuActiveTimeBms);
+		return sumEnergy;
+	}
+
+	/**
+	 * Return the CPU energy cost for an agenda, in Joules.
+	 * @param cpuActiveTimeBms
+	 * @return
+	 */
+	private double getCPUEnergy(long cpuActiveTimeBms) {
+		double agendaLength = bmsToMs(this.getLength_bms(false))/1000.0; //bms to ms to s
+		double cpuActiveTime = bmsToMs(cpuActiveTimeBms)/1000.0; //bms to ms to s
+		double cpuSleepTime = agendaLength - cpuActiveTime; // s
+		double voltage = AvroraCostParameters.VOLTAGE;
+		double activeCurrent = AvroraCostParameters.CPUACTIVEAMPERE;
+		double sleepCurrent = AvroraCostParameters.CPUPOWERSAVEAMPERE;
+		
+		double cpuActiveEnergy = cpuActiveTime * activeCurrent * voltage; //J
+		double cpuSleepEnergy = cpuSleepTime * sleepCurrent * voltage; //J
+		
+		return cpuActiveEnergy + cpuSleepEnergy;
+	}
+		
+	/**
+	 * Returns radio energy for communication tasks (J) for agenda according to model.
+	 * Excludes radio switch on.
+	 * @param ct
+	 * @return
+	 */
+	private double getRadioEnergy(CommunicationTask ct) {
+		double taskDuration = bmsToMs(ct.getTimeCost(this.daf))/1000.0;
+		double voltage = AvroraCostParameters.VOLTAGE;
+		
+		double radioRXAmp = AvroraCostParameters.getRadioReceiveAmpere();
+		if (ct.getMode()==CommunicationTask.RECEIVE) {
+			 
+			double taskEnergy = taskDuration*radioRXAmp*voltage; 
+//			recordEnergyDetails("Commtask "+ct.toString()+
+//					": Adding "+(taskEnergy*1000.0)+
+//					"mJ rx energy ("+radioRXAmp+"A * "+
+//					voltage+"V * "+ taskDuration+"s)");
+			return taskEnergy;
+		}
+		Site sender = ct.getSourceNode();
+		Site receiver = (Site)sender.getOutput(0);
+		int txPower = (int)this.getDAF().getRT().getRadioLink(sender, receiver).getLinkEnergyCost(sender, receiver);
+		double radioTXAmp = AvroraCostParameters.getTXAmpere(txPower);
+		
+		HashSet<ExchangePart> exchComps = ct.getExchangeComponents();
+		AvroraCostExpressions  costExpressions = 
+			(AvroraCostExpressions)CostExpressions.costExpressionFactory(daf);
+		AlphaBetaExpression txTimeExpr = AlphaBetaExpression.multiplyBy(
+				costExpressions.getPacketsSent(exchComps, true),
+				AvroraCostParameters.PACKETTRANSMIT);
+		double txTime = (txTimeExpr.evaluate(alpha, beta))/1000.0;
+		double rxTime = taskDuration-txTime;
+		assert(rxTime>=0);
+		
+		double txEnergy = txTime*radioTXAmp*voltage; 
+		double rxEnergy = rxTime*radioRXAmp*voltage; 
+		return (txEnergy+rxEnergy);	
+	}
+
+	
+	/**
+	 * Returns sensor energy cost (J) for agenda according to model.
+	 * @param f
+	 * @return
+	 */
+	private double getSensorEnergyCost(Fragment f) {
+		//accelerometer in TinyDB assumed
+		//0.9ms/sample, 17ms startup time, 0.6mA current, 3V
+		//(0.0009 milliseconds + 0.017 milliseconds)* 0.6 milliamps * 3 volts 
+		// =3.22200e-8 Joules
+		//TODO: This is a cut corner... (1) Need to consider sensor attributes 
+		//in acquire and (2) adjust the length of this during agenda creation.
+		//recordEnergyDetails("Fragment "+f.getID()+": Adding 0.0001074J sensor energy");
+		return 0.00000003222;
+	}
+
+	
+	private ArrayList<Triple<Site,Double,Double>> siteRanking = 
+		new ArrayList<Triple<Site,Double,Double>>();  
+	
+	/**
+	 * Returns the network lifetime in seconds according to model.
+	 * @return
+	 */
+	public double getLifetime() {
+		double shortestLifetime = Double.MAX_VALUE; //s
+				
+		Iterator<Site> siteIter = this.getDAF().getRT().siteIterator(
+				TraversalOrder.POST_ORDER);
+		while (siteIter.hasNext()) {
+			Site site = siteIter.next();
+			if (site!=this.getDAF().getRT().getRoot()) {
+				
+				double siteEnergySupply = site.getEnergyStock()/1000.0; // mJ to J 
+				double siteEnergyCons = this.getSiteEnergyConsumption(site); // J
+				double agendaLength = bmsToMs(this.getLength_bms(false))/1000.0; // ms to s
+				double energyConsumptionRate = siteEnergyCons/agendaLength; // J/s
+				double siteLifetime = siteEnergySupply / energyConsumptionRate; //s
+			
+				shortestLifetime = Math.min((double)shortestLifetime, siteLifetime);
+			}
+		}
+		
+		return shortestLifetime;
+	}	
+		
 }
+

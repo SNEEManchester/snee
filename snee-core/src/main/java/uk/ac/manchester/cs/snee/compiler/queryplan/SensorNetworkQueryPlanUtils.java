@@ -47,7 +47,7 @@ public class SensorNetworkQueryPlanUtils {
 					new FileWriter(qosMetricsFilePath)));
 			out.println("{");
 			out.println("\t\"alpha_ms\": "+snqp.getAgenda().getAcquisitionInterval_ms()+",");
-			out.println("\t\"beta_ms\": "+snqp.getAgenda().getBufferingFactor()+",");
+			out.println("\t\"beta\": "+snqp.getAgenda().getBufferingFactor()+",");
 			out.println("\t\"delta_ms\": "+snqp.getAgenda().getDeliveryTime_ms()+",");
 			out.println("\t\"epsilon_J\": "+snqp.getAgenda().getTotalEnergy()+",");
 			out.println("\t\"lambda_days\": "+snqp.getAgenda().getLifetimeDays());

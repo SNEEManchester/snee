@@ -1014,10 +1014,10 @@ public class Agenda extends SNEEAlgebraicForm {
 		new ArrayList<Triple<Site,Double,Double>>();  
 	
 	/**
-	 * Returns the network lifetime in seconds according to model.
+	 * Returns the network lifetime in days according to model.
 	 * @return
 	 */
-	public double getLifetime() {
+	public double getLifetimeDays() {
 		double shortestLifetime = Double.MAX_VALUE; //s
 				
 		Iterator<Site> siteIter = this.getDAF().getRT().siteIterator(
@@ -1036,8 +1036,7 @@ public class Agenda extends SNEEAlgebraicForm {
 			}
 		}
 		
-		return shortestLifetime;
+		return shortestLifetime/86400.0; //number of seconds in a day
 	}	
 		
 }
-

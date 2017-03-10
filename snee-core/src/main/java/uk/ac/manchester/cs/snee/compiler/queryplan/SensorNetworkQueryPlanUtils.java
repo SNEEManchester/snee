@@ -39,18 +39,18 @@ public class SensorNetworkQueryPlanUtils {
 		}
 		if (logger.isDebugEnabled())
 			logger.debug("RETURN generateQoSMetricsFile()");
-		}
+	}
 
 	private void generateQoSMetricsFile(String qosMetricsFilePath) {
 		try {
 			PrintWriter out = new PrintWriter(new BufferedWriter(
 					new FileWriter(qosMetricsFilePath)));
 			out.println("{");
-			out.println("\t\"alpha_ms\": \""+snqp.getAgenda().getAcquisitionInterval_ms()+"\"");
-			out.println("\t\"beta_ms\": \""+snqp.getAgenda().getBufferingFactor()+"\"");
-			out.println("\t\"delta_ms\": \""+snqp.getAgenda().getDeliveryTime_ms()+"\"");
-			out.println("\t\"epsilon_J\": \""+snqp.getAgenda().getTotalEnergy()+"\"");
-			out.println("\t\"lambda_s\": \""+snqp.getAgenda().getLifetime()+"\"");
+			out.println("\t\"alpha_ms\": "+snqp.getAgenda().getAcquisitionInterval_ms()+",");
+			out.println("\t\"beta_ms\": "+snqp.getAgenda().getBufferingFactor()+",");
+			out.println("\t\"delta_ms\": "+snqp.getAgenda().getDeliveryTime_ms()+",");
+			out.println("\t\"epsilon_J\": "+snqp.getAgenda().getTotalEnergy()+",");
+			out.println("\t\"lambda_days\": "+snqp.getAgenda().getLifetimeDays());
 			out.println("}");
 			out.close();
 		} catch (final IOException e) {

@@ -37,7 +37,7 @@ package uk.ac.manchester.cs.snee.sncb;
 public enum SensorType {
 
 	DEFAULT, LIGHT, PHOTO_SYNTHETIC_RADIATION, TOTAL_SOLAR_RADIATION, 
-	TEMPERATURE, PRESSURE, VOLTAGE, SEA_LEVEL, DEPTH;
+	TEMPERATURE, PRESSURE, VOLTAGE, SEA_LEVEL, DEPTH, HUMIDITY;
 
 	public static SensorType parseSensorType(String s) {
 
@@ -67,6 +67,9 @@ public enum SensorType {
 		}		
 		if (s.equalsIgnoreCase("depth")) {
 			return DEPTH;
+		}
+		if (s.equalsIgnoreCase("humidity")) {
+			return HUMIDITY;
 		}
 		return null;
 	}

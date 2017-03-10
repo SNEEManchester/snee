@@ -51,6 +51,7 @@ import uk.ac.manchester.cs.snee.metadata.AvroraCostParameters;
 import uk.ac.manchester.cs.snee.metadata.CostParameters;
 import uk.ac.manchester.cs.snee.metadata.schema.SchemaMetadataException;
 import uk.ac.manchester.cs.snee.metadata.schema.TypeMappingException;
+import uk.ac.manchester.cs.snee.metadata.source.sensornet.LinkCostMetric;
 import uk.ac.manchester.cs.snee.metadata.source.sensornet.Site;
 import uk.ac.manchester.cs.snee.operators.logical.AcquireOperator;
 import uk.ac.manchester.cs.snee.operators.logical.CardinalityType;
@@ -935,7 +936,16 @@ public class Agenda extends SNEEAlgebraicForm {
 		}
 		Site sender = ct.getSourceNode();
 		Site receiver = (Site)sender.getOutput(0);
-		int txPower = (int)this.getDAF().getRT().getRadioLink(sender, receiver).getEnergyCost();
+				
+		//results in java.lang.ClassCastException: uk.ac.manchester.cs.snee.common.graph.EdgeImplementation cannot be cast to uk.ac.manchester.cs.snee.metadata.source.sensornet.RadioLink
+		//int txPower = (int)this.getDAF().getRT().getRadioLink(sender, receiver).getEnergyCost();
+		//double radioTXAmp = AvroraCostParameters.getTXAmpere(txPower);
+		
+		//need to look at how WSN-DD generates energy values!
+		//double radioTXAmp = this.getDAF().getRT().getRadioLink(sender, receiver).getCost(LinkCostMetric.ENERGY);
+		
+		//temporary solution
+		int txPower = 255;
 		double radioTXAmp = AvroraCostParameters.getTXAmpere(txPower);
 		
 		HashSet<ExchangePart> exchComps = ct.getExchangeComponents();
